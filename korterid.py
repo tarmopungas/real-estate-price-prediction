@@ -11,9 +11,6 @@ with open("kv-ads-2020-11-03T09-39-44_TARMO.jl") as f:
 
 # To display all columns
 pd.set_option('display.max_columns', None)
-# print(df.head())
-# print(df.category.describe())
-# print(df.category.unique())
 
 # Dropping unnecessary columns; we only need apartment data
 print("Size of original dataframe:", len(df))
@@ -52,6 +49,6 @@ print("NaN values in: " + str([i + ": " + str(df[i].isnull().sum()) + " NaNs" fo
 
 # Write first 100 rows to csv file and to xlsx file (so you could look around)
 # df.description = df.description.apply(lambda x: x.replace('\n', '\\n'))  # Have to replace newline with other symbol (otherwise Excel is a mess)
-part = df.iloc[:100, :]
+# part = df.iloc[:100, :]
 # part.to_csv(path_or_buf="korterid.csv", encoding="utf-8-sig", index=False)
 # part.to_excel(excel_writer="korterid.xlsx")
