@@ -1,4 +1,7 @@
 import pandas as pd
+from sklearn.cluster import OPTICS
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
 import numpy as np
 import json
 
@@ -31,8 +34,11 @@ df['floor'] = [i['floor'] for i in df['extra']]
 
 # Extract address from 'title' and insert it into new column
 df['address'] = ["-".join(i.split("-")[1:]) for i in df['title']]
-
 df = df.drop(columns=['extra', 'title'])
+
+# Extracting municipality from address
+municipality = [(i.split(",")[-2]).strip() for i in df['address']]
+df.insert(len(df.columns), 'municipality', municipality)
 
 # Move 'geo' column to the very end
 geo = df.pop('geo')
@@ -43,7 +49,50 @@ df = df.fillna(np.nan)
 df['energyClass'] = df['energyClass'].replace('Puudub', np.nan)
 df['energyClass'] = df['energyClass'].replace('-', np.nan)
 
-print("Size of cleaned dataframe:", len(df))
+# Geo clustering using OPTICS clustering, because it works with geo-coordinates and it also deals with noise. Also it
+# has the ability to have clusters with varying densities
+koordinaadid = np.array([[i['lng'], i['lat']] for i in df['geo']])
+# I chose min_samples=5, because it made decent amount of clusters(not too much and not too many) and I also used
+# max_eps=0.1, to eliminate noise in clusters. max_eps=01 is around 10km. One bad thing here is that in Estonia one
+# longitude is 111km and one latitude is ~57km, so longitude values have pretty much double the weight than latitude.
+# Not sure if it's smth worth taking it to account or not.
+clust = OPTICS(min_samples=5, max_eps=0.1).fit(koordinaadid)
+labels = clust.labels_[clust.ordering_]
+# Insert clusters to dataframe
+df.insert(len(df.columns), 'cluster', labels)
+
+# Down here is commented out cluster plotting
+'''
+space = np.arange(len(koordinaadid))
+reachability = clust.reachability_[clust.ordering_]
+plt.figure(figsize=(10, 10))
+G = gridspec.GridSpec(2, 3)
+ax1 = plt.subplot(G[0, :])
+ax2 = plt.subplot(G[1, 1:])
+
+# Reachability plot
+colors = ['g.', 'r.', 'b.', 'y.', 'c.']
+for i in range(len(labels)):
+    Xk = space[labels == i]
+    Rk = reachability[labels == i]
+    ax1.plot(Xk, Rk, colors[i % 5], alpha=0.3)
+ax1.plot(space[labels == -1], reachability[labels == -1], 'k.', alpha=0.3)
+ax1.set_ylabel('Reachability (epsilon distance)')
+ax1.set_title('Reachability Plot')
+
+# OPTICS
+colors = ['g.', 'r.', 'b.', 'y.', 'c.']
+for i in range(len(labels)):
+    Xk = koordinaadid[clust.labels_ == i]
+    ax2.plot(Xk[:, 0], Xk[:, 1], colors[i % 5], alpha=0.3)
+ax2.plot(koordinaadid[clust.labels_ == -1, 0], koordinaadid[clust.labels_ == -1, 1], 'k+', alpha=0.1)
+ax2.set_title('Automatic Clustering\nOPTICS')
+
+plt.tight_layout()
+plt.show()
+print("Total number of clusters:", (max(labels)+1))
+'''
+print("Size of selected dataframe:", len(df))
 print("Existing columns:", list(df.columns))
 print("NaN values in: " + str([i + ": " + str(df[i].isnull().sum()) + " NaNs" for i in df.columns if df[i].isnull().sum() > 0]) if df.isnull().values.any() else 'There are no null values in the dataframe')
 
